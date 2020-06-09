@@ -1,0 +1,34 @@
+variables:
+  ci_runner_image: 'cpackham/ubuntu18.04-ct-ng-prereq:latest'
+
+jobs:
+- job: keystone
+  displayName: 'Build keystone targets'
+  timeoutInMinutes: 120
+  pool:
+    vmImage: ubuntu-18.04
+  container:
+    image: $(ci_runner_image)
+  strategy:
+    matrix:
+      arm:
+        configuration: arm-unknown-linux-gnueabi
+      aarch64:
+        configuration: aarch64-unknown-linux-gnu
+      mips:
+        configuration: mips-unknown-elf
+      powerpc64:
+        configuration: powerpc64-unknown-linux-gnu
+      powerpc:
+        configuration: powerpc-unknown-linux-gnu
+  steps:
+  - script: |
+      ./bootstrap
+      ./configure --enable-local
+      make
+      mkdir -p src
+      ./ct-ng "$(configuration)"
+      sed -i- -e '/CT_LOG_PROGRESS_BAR/s/y$/n/' .config
+      sed -i- -e '/CT_LOCAL_TARBALLS_DIR/s/HOME/CT_TOP_DIR/' .config
+      sed -i- -e '/CT_PREFIX_DIR/s/HOME/CT_TOP_DIR/' .config
+      ./ct-ng build
