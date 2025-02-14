@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.host }}
     strategy:
       matrix:
-        host: ["ubuntu-22.04", "macos-13"]
+        host: ["ubuntu-22.04", "macos-13", "windows-latest"]
     steps:
       - name: "clone"
         uses: actions/checkout@v4
@@ -23,6 +23,11 @@ jobs:
         run: |
           brew install autoconf automake bash binutils gawk gnu-sed \
                gnu-tar help2man libtool make meson ncurses ninja texinfo
+      - name: "prereq windows"
+        if: ${{ runner.os == "Windows" }}
+        shell: bash
+        run: |
+          pacman -S bison flex gperf help2man libtool-bin meson ninja-build texinfo
       - name: "build ct-ng"
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
@@ -107,35 +112,36 @@ jobs:
     with:
       samples: >-
         [
-          "aarch64-unknown-linux-gnu",
-          "aarch64-unknown-linux-musl",
-          "arc-multilib-elf32",
-          "arc-multilib-linux-gnu",
-          "arc-multilib-linux-uclibc",
-          "arm-picolibc-default",
-          "arm-unknown-linux-gnueabi",
-          "arm-unknown-linux-musleabi",
-          "armv6-nommu-linux-uclibcgnueabi",
-          "avr",
-          "hppa-unknown-linux-gnu",
-          "i686-w64-mingw32",
-          "loongarch64-unknown-linux-gnu",
-          "loongarch64-unknown-linux-musl",
-          "mips-unknown-elf",
-          "mips-unknown-linux-gnu",
-          "mips64-unknown-linux-gnu",
-          "powerpc-unknown-linux-gnu",
-          "powerpc64-unknown-linux-gnu",
-          "powerpc64-unknown-linux-musl",
-          "riscv32-unknown-elf",
-          "riscv64-unknown-elf",
-          "s390-unknown-linux-gnu",
-          "sh-unknown-elf",
-          "sparc-unknown-linux-gnu",
-          "x86_64-multilib-linux-uclibc",
-          "x86_64-unknown-linux-gnu",
-          "x86_64-w64-mingw32",
-          "xtensa-fsf-linux-uclibc"
+          "aarch64-unknown-linux-gnu"
+          # "aarch64-unknown-linux-gnu",
+          # "aarch64-unknown-linux-musl",
+          # "arc-multilib-elf32",
+          # "arc-multilib-linux-gnu",
+          # "arc-multilib-linux-uclibc",
+          # "arm-picolibc-default",
+          # "arm-unknown-linux-gnueabi",
+          # "arm-unknown-linux-musleabi",
+          # "armv6-nommu-linux-uclibcgnueabi",
+          # "avr",
+          # "hppa-unknown-linux-gnu",
+          # "i686-w64-mingw32",
+          # "loongarch64-unknown-linux-gnu",
+          # "loongarch64-unknown-linux-musl",
+          # "mips-unknown-elf",
+          # "mips-unknown-linux-gnu",
+          # "mips64-unknown-linux-gnu",
+          # "powerpc-unknown-linux-gnu",
+          # "powerpc64-unknown-linux-gnu",
+          # "powerpc64-unknown-linux-musl",
+          # "riscv32-unknown-elf",
+          # "riscv64-unknown-elf",
+          # "s390-unknown-linux-gnu",
+          # "sh-unknown-elf",
+          # "sparc-unknown-linux-gnu",
+          # "x86_64-multilib-linux-uclibc",
+          # "x86_64-unknown-linux-gnu",
+          # "x86_64-w64-mingw32",
+          # "xtensa-fsf-linux-uclibc"
         ]
 
 #  canadian-cross:

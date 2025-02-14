@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.host }}
     strategy:
       matrix:
-        host: ["ubuntu-22.04", "macos-13"]
+        host: ["ubuntu-22.04", "macos-13", "windows-latest"]
         sample: ${{ fromJSON(inputs.samples) }}
         exclude:
           # Exclude both glibc & uClibc ARC Linux toolchains as
@@ -73,6 +73,12 @@ jobs:
         run: |
           brew install autoconf automake bash binutils gawk gnu-sed \
                gnu-tar help2man make meson ncurses ninja pkg-config texinfo libtool
+          echo "${{ github.workspace }}/.local/bin" >> "$GITHUB_PATH"
+      - name: prereq windows
+        if: ${{ runner.os == "Windows" }}
+        shell: bash
+        run: |
+          pacman -S bison flex gperf help2man libtool-bin meson ninja-build texinfo
           echo "${{ github.workspace }}/.local/bin" >> "$GITHUB_PATH"
       - name: download x86_64-w64-mingw32.${{ matrix.host }} tarball
         if: ${{ inputs.canadian-cross }}
