@@ -1,0 +1,70 @@
+name: Setup Dependencies
+description: Setup Dependencies
+inputs:
+  runneros:
+    description: Runner OS
+    required: true
+    type: string
+runs:
+  using: composite
+  steps:
+    - name: "prereq Linux"
+      shell: bash
+      if: ${{ inputs.runneros == 'Linux' }}
+      run: |
+        sudo apt-get update && sudo apt-get install -y \
+          bison \
+          flex \
+          gperf \
+          help2man \
+          libtool-bin \
+          meson \
+          ninja-build \
+          texinfo
+    - name: "prereq macOS"
+      shell: bash
+      if: ${{ inputs.runneros == 'macOS' }}
+      run: |
+        brew install \
+          autoconf \
+          automake \
+          bash \
+          binutils \
+          gawk \
+          gnu-sed \
+          gnu-tar \
+          help2man \
+          libtool \
+          make \
+          meson \
+          ncurses \
+          ninja \
+          texinfo
+    - name: "prereq Windows"
+      shell: 'msys2 {0}'
+      if: ${{ inputs.runneros == 'Windows' }}
+      run: |
+        pacman -S --noconfirm \
+          autoconf \
+          automake \
+          base-devel \
+          bison \
+          coreutils \
+          flex \
+          gawk \
+          gcc \
+          gettext \
+          git \
+          gperf \
+          help2man \
+          libiconv \
+          libtool \
+          make \
+          msys2-runtime-devel \
+          ncurses-devel \
+          patch \
+          pkg-config \
+          python3 \
+          rsync \
+          texinfo \
+          unzip

@@ -1,4 +1,3 @@
----
 name: Build toolchains
 
 on:
@@ -16,28 +15,34 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.host }}
+    runs-on: ${{ matrix.sys.os }}
     strategy:
       matrix:
-        host: ["ubuntu-22.04", "macos-13"]
+        sys:
+          - { os: ubuntu-22.04, shell: bash }
+          - { os: macos-13, shell: bash }
+          - { os: windows-latest, shell: 'msys2 {0}' }
         sample: ${{ fromJSON(inputs.samples) }}
         exclude:
           # Exclude both glibc & uClibc ARC Linux toolchains as
           # there's no known use of ARC Linux toolchains on Mac,
           # and anyway glibc fails to build for ARC700,
           # see https://github.com/crosstool-ng/crosstool-ng/pull/1456#issuecomment-779150246
-          - {host: "macos-13", sample: "arc-multilib-linux-gnu"}
-          - {host: "macos-13", sample: "arc-multilib-linux-uclibc"}
+          - { sys: {os: "macos-13", shell: "bash"}, sample: "arc-multilib-linux-gnu" }
+          - { sys: {os: "macos-13", shell: "bash"}, sample: "arc-multilib-linux-uclibc" }
 
           # Exclude mips*-*-linux-gnu because of <byteswap.h> usage in
           # elf-entry.c for linux kernel headers.  <byteswap.h> is a GNU
           # extension and doesn't exist on MacOS X
-          - {host: "macos-13", sample: "mips-unknown-linux-gnu"}
-          - {host: "macos-13", sample: "mips64-unknown-linux-gnu"}
+          - { sys: {os: "macos-13", shell: "bash"}, sample: "mips-unknown-linux-gnu" }
+          - { sys: {os: "macos-13", shell: "bash"}, sample: "mips64-unknown-linux-gnu" }
 
           # Exclude x86_64-w64-mingw32,x86_64-pc-linux-gnu because it crashes on m4 build with
           # a Segmentation fault
-          - {host: "macos-13", sample: "x86_64-w64-mingw32,x86_64-pc-linux-gnu"}
+          - { sys: {os: "macos-13", shell: "bash"}, sample: "x86_64-w64-mingw32,x86_64-pc-linux-gnu" }
+    defaults:
+      run:
+        shell: ${{ matrix.sys.shell }}
     steps:
       - name: create case sensitive workspace volume for macOS
         if: ${{ runner.os == 'macOS' }}
@@ -47,71 +52,132 @@ jobs:
           hdiutil create "${HOME}/Workspace.sparseimage" -volname crosstool-ng -type SPARSE -size 20g -fs HFSX
           hdiutil mount "${HOME}/Workspace.sparseimage" -mountroot /Users/runner/work/crosstool-ng
           cd crosstool-ng
+
+      - name: Enable case sensitivity for Windows
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          cd ..
+          fsutil.exe file setCaseSensitiveInfo crosstool-ng enable
+          cd crosstool-ng
+
+      - name: Set up MSYS2 on Windows
+        if: ${{ runner.os == 'Windows' }}
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: ucrt64
+          path-type: inherit
+
       - name: download ct-ng
         uses: actions/download-artifact@v4
         with:
-          name: crosstool.${{ matrix.host }}
+          name: crosstool.${{ matrix.sys.os }}
+
       - name: extract ct-ng
         run: |
           tar -xf ct-ng.tar
+
       - name: download tarballs
         uses: actions/cache/restore@v4
         with:
           path: src.tar
           key: src.tar-${{ hashFiles('.local/share/crosstool-ng/packages') }}-${{ hashFiles('.local/share/crosstool-ng/samples') }}
+
       - name: extract tarballs
         continue-on-error: true
         run: |
           tar -xvf src.tar
+
+      - name: Debug
+        run: |
+          find .local
+
+      - name: prereq Windows
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          pacman -S --noconfirm \
+            autoconf \
+            automake \
+            bison \
+            flex \
+            gawk \
+            git \
+            gperf \
+            help2man \
+            libtool \
+            make \
+            meson \
+            mingw-w64-x86_64-gcc \
+            msys2-runtime-devel \
+            ncurses-devel \
+            ninja \
+            patch \
+            python3 \
+            rsync \
+            texinfo
+          echo "${{ github.workspace }}/.local/bin" >> "$GITHUB_PATH"
+
       - name: prereq Linux
         if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt-get update && sudo apt-get install -y bison flex gperf help2man libtool-bin meson ninja-build texinfo
           echo "${{ github.workspace }}/.local/bin" >> "$GITHUB_PATH"
+
       - name: prereq macOS
         if: ${{ runner.os == 'macOS' }}
         run: |
           brew install autoconf automake bash binutils gawk gnu-sed \
                gnu-tar help2man make meson ncurses ninja pkg-config texinfo libtool
           echo "${{ github.workspace }}/.local/bin" >> "$GITHUB_PATH"
-      - name: download x86_64-w64-mingw32.${{ matrix.host }} tarball
+
+      - name: download x86_64-w64-mingw32.${{ matrix.sys.os }} tarball
         if: ${{ inputs.canadian-cross }}
         uses: actions/download-artifact@v4
         with:
-          name: x86_64-w64-mingw32.${{ matrix.host }}.tar
-      - name: install x86_64-w64-mingw32.${{ matrix.host }} toolchain
+          name: x86_64-w64-mingw32.${{ matrix.sys.os }}.tar
+
+      - name: install x86_64-w64-mingw32.${{ matrix.sys.os }} toolchain
         if: ${{ inputs.canadian-cross }}
         run: |
           mkdir -p ${{ github.workspace }}/x86_64-w64-mingw32
           tar -C ${{ github.workspace }}/x86_64-w64-mingw32 \
-              -xf x86_64-w64-mingw32.${{ matrix.host }}.tar
+              -xf x86_64-w64-mingw32.${{ matrix.sys.os }}.tar
           echo "${{ github.workspace }}/x86_64-w64-mingw32/bin" >> "$GITHUB_PATH"
-      - name: build ${{ matrix.sample }} for ${{ matrix.host }}
+
+      - run: MSYSTEM="MSYS" uname
+
+      - name: build ${{ matrix.sample }} for ${{ matrix.sys.os }}
         run: |
+          MSYS=winsymlinks:lnk
+          export MSYS
           mkdir -p src
           ct-ng ${{ matrix.sample }}
           sed -i -e '/CT_LOG_PROGRESS_BAR/s/y$/n/' .config
           sed -i -e '/CT_LOCAL_TARBALLS_DIR/s/HOME/CT_TOP_DIR/' .config
           sed -i -e '/CT_PREFIX_DIR/s/HOME/CT_TOP_DIR/' .config
           sed -i -e '/CT_GLIBC_ENABLE_DEBUG/s/y$/n/' .config
-          test ${{ matrix.host }} = "macos-13" && sed -i -e '/CT_GDB_CROSS_PYTHON/s/y$/n/' .config
+          test ${{ matrix.sys.os }} = "macos-13" && sed -i -e '/CT_GDB_CROSS_PYTHON/s/y$/n/' .config
           ct-ng build
-      - name: create ${{ matrix.sample }}.${{ matrix.host }} tarball
+
+      - name: create ${{ matrix.sample }}.${{ matrix.sys.os }} tarball
         if: ${{ matrix.sample == 'x86_64-w64-mingw32' }}
         run: |
           tar -C ${{ github.workspace }}/x-tools/${{ matrix.sample }} \
-              -cf ${{ matrix.sample }}.${{ matrix.host }}.tar .
-      - name: upload ${{ matrix.sample }}.${{ matrix.host }} tarball
+              -cf ${{ matrix.sample }}.${{ matrix.sys.os }}.tar .
+
+      - name: upload ${{ matrix.sample }}.${{ matrix.sys.os }} tarball
         if: ${{ matrix.sample == 'x86_64-w64-mingw32' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.sample }}.${{ matrix.host }}.tar
+          name: ${{ matrix.sample }}.${{ matrix.sys.os }}.tar
           path: |
-            ${{ matrix.sample }}.${{ matrix.host }}.tar
+            ${{ matrix.sample }}.${{ matrix.sys.os }}.tar
+
       - name: upload log
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.sample }}.${{ matrix.host }}.log
+          name: ${{ matrix.sample }}.${{ matrix.sys.os }}.log
           path: |
             build.log
             .config

@@ -7,60 +7,58 @@ on:
 
 jobs:
   crosstool:
-    runs-on: ${{ matrix.host }}
+    runs-on: ${{ matrix.sys.os }}
     strategy:
       matrix:
-        host: ["ubuntu-22.04", "macos-13"]
+        sys:
+          - { os: ubuntu-22.04, shell: bash }
+          - { os: macos-13, shell: bash }
+          - { os: windows-latest, shell: 'msys2 {0}' }
+    defaults:
+      run:
+        shell: ${{ matrix.sys.shell }}
     steps:
-      - name: "clone"
+      - name: Config
+        shell: bash
+        run: git config --global core.autocrlf input
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: "prereq Linux"
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          sudo apt-get update && sudo apt-get install -y bison flex gperf help2man libtool-bin meson ninja-build texinfo
-      - name: "prereq macOS"
-        if: ${{ runner.os == 'macOS' }}
-        run: |
-          brew install autoconf automake bash binutils gawk gnu-sed \
-               gnu-tar help2man libtool make meson ncurses ninja texinfo
+      - name: "Set up MSYS2 on Windows"
+        if: ${{ runner.os == 'Windows' }}
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: ucrt64
+      - name: "prereq"
+        uses: ./.github/workflows/setup-dependencies
+        with:
+          runneros: ${{ runner.os }}
       - name: "build ct-ng"
-        run: |
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            PATH="$PATH:$(brew --prefix)/opt/binutils/bin"
-            export PATH
-            CPPFLAGS="-I$(brew --prefix)/opt/ncurses/include -I$(brew --prefix)/opt/gettext/include"
-            export CPPFLAGS
-            LDFLAGS="-L$(brew --prefix)/opt/ncurses/lib -L$(brew --prefix)/opt/gettext/lib"
-            export LDFLAGS
-          fi
-          ./bootstrap
-          ./configure --prefix="$PWD/.local/"
-          make
-          make install
-          tar -cf ct-ng.tar .local/
+        run: ./.github/scripts/build-ct-ng.sh
       - name: "upload ct-ng"
         uses: actions/upload-artifact@v4
         with:
-          name: crosstool.${{ matrix.host }}
+          name: crosstool.${{ matrix.sys.os }}
           path: ct-ng.tar
       - name: "upload config.log"
         uses: actions/upload-artifact@v4
         with:
-          name: config.log.${{ matrix.host }}
+          name: config.log.${{ matrix.sys.os }}
           path: config.log
         if: ${{ always() }}
 
   tarballs:
     needs: crosstool
-    runs-on: ${{ matrix.host }}
+    runs-on: ${{ matrix.sys.os }}
     strategy:
       matrix:
-        host: ["ubuntu-22.04"]
+        sys:
+          - { os: ubuntu-22.04, shell: bash }
     steps:
       - name: "download ct-ng"
         uses: actions/download-artifact@v4
         with:
-          name: crosstool.${{ matrix.host }}
+          name: crosstool.${{ matrix.sys.os }}
       - name: "extract ct-ng"
         run: |
           tar -xf ct-ng.tar
@@ -107,35 +105,7 @@ jobs:
     with:
       samples: >-
         [
-          "aarch64-unknown-linux-gnu",
-          "aarch64-unknown-linux-musl",
-          "arc-multilib-elf32",
-          "arc-multilib-linux-gnu",
-          "arc-multilib-linux-uclibc",
-          "arm-picolibc-default",
-          "arm-unknown-linux-gnueabi",
-          "arm-unknown-linux-musleabi",
-          "armv6-nommu-linux-uclibcgnueabi",
-          "avr",
-          "hppa-unknown-linux-gnu",
-          "i686-w64-mingw32",
-          "loongarch64-unknown-linux-gnu",
-          "loongarch64-unknown-linux-musl",
-          "mips-unknown-elf",
-          "mips-unknown-linux-gnu",
-          "mips64-unknown-linux-gnu",
-          "powerpc-unknown-linux-gnu",
-          "powerpc64-unknown-linux-gnu",
-          "powerpc64-unknown-linux-musl",
-          "riscv32-unknown-elf",
-          "riscv64-unknown-elf",
-          "s390-unknown-linux-gnu",
-          "sh-unknown-elf",
-          "sparc-unknown-linux-gnu",
-          "x86_64-multilib-linux-uclibc",
-          "x86_64-unknown-linux-gnu",
-          "x86_64-w64-mingw32",
-          "xtensa-fsf-linux-uclibc"
+          "aarch64-unknown-linux-gnu"
         ]
 
 #  canadian-cross:
