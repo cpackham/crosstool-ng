@@ -57,6 +57,7 @@ jobs:
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-ncurses
       - name: Install dependencies on Windows
         if: ${{ runner.os == 'Windows' }}
         run: |
@@ -72,9 +73,10 @@ jobs:
             bison \
             texinfo \
             help2man \
-            ncurses-devel \
             python3 \
-            patch
+            patch \
+            msys2-runtime-devel \
+            unzip
       - name: download ct-ng
         uses: actions/download-artifact@v4
         with:
