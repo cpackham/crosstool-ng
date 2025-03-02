@@ -86,7 +86,7 @@ do_zstd_backend() {
     # There is no library only check in zstd
 
     CT_DoLog EXTRA "Installing zstd"
-    CT_DoExecLog ALL make -C "${CT_SRC_DIR}/zstd/lib" install-static install-includes BUILD_DIR="${PWD}" PREFIX="$prefix"
+    CT_DoExecLog ALL make -C "${CT_SRC_DIR}/zstd/lib" install-static install-includes BUILD_DIR="${PWD}" PREFIX="$prefix" CC="${host}-gcc" AS="${host}-as" CFLAGS="${cflags}" LDFLAGS="${ldflags}"
 }
 
 fi # CT_ZSTD
